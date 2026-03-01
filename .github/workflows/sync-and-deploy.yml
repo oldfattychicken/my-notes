@@ -38,10 +38,7 @@ jobs:
           mget *   # 下载所有md文件到本地docs
           EOF
           # 执行同步（-t 避免交互，-u/-p 传入账号密码）
-          cadaver -t "${{ secrets.WEBDAV_URL }}" \
-            -u "${{ secrets.WEBDAV_USER }}" \
-            -p "${{ secrets.WEBDAV_PASS }}" \
-            < sync.nut
+          cadaver -t "https://${{ secrets.WEBDAV_USER }}:${{ secrets.WEBDAV_PASS }}@dav.jianguoyun.com/dav/" < sync.nut
 
       # 步骤4：安装Node.js和依赖
       - name: Setup Node.js
