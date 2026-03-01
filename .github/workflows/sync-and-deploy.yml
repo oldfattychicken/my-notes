@@ -1,0 +1,69 @@
+name: Sync NutStore & Deploy GitHub Pages
+
+# 触发条件：每5分钟自动执行 + 手动触发
+on:
+  schedule:
+    - cron: "*/5 * * * *" # 每5分钟拉一次坚果云笔记
+  workflow_dispatch: # 手动触发按钮（在GitHub Actions页面可见）
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    # 赋予部署GitHub Pages的权限
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      # 步骤1：拉取GitHub仓库代码
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 步骤2：安装WebDAV工具（用于访问坚果云）
+      - name: Install cadaver (WebDAV client)
+        run: sudo apt update && sudo apt install -y cadaver
+
+      # 步骤3：从坚果云拉取笔记到docs目录
+      - name: Sync notes from NutStore
+        run: |
+          # 确保docs目录存在
+          mkdir -p docs
+          # 编写WebDAV同步脚本
+          cat > sync.nut << EOF
+          lcd docs  # 本地切换到docs目录
+          cd ${{ secrets.WEBDAV_PATH }}  # 远程切换到坚果云笔记目录
+          mget *   # 下载所有md文件到本地docs
+          EOF
+          # 执行同步（-t 避免交互，-u/-p 传入账号密码）
+          cadaver -t "${{ secrets.WEBDAV_URL }}" \
+            -u "${{ secrets.WEBDAV_USER }}" \
+            -p "${{ secrets.WEBDAV_PASS }}" \
+            < sync.nut
+
+      # 步骤4：安装Node.js和依赖
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20 # 指定Node版本
+          cache: "npm" # 缓存npm依赖，加速构建
+
+      - name: Install dependencies
+        run: npm install
+
+      # 步骤5：构建VitePress
+      - name: Build VitePress site
+        run: npm run docs:build
+
+      # 步骤6：上传构建产物
+      - name: Upload build artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/.vitepress/dist # VitePress构建后的目录
+
+      # 步骤7：部署到GitHub Pages
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

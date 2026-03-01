@@ -1,0 +1,12 @@
+# 忽略依赖文件夹
+node_modules/
+
+# 忽略打包产物
+.vitepress/dist/
+
+# 忽略日志文件
+npm-debug.log*
+
+# 忽略编辑器配置（可选）
+.idea/
+.vscode/
