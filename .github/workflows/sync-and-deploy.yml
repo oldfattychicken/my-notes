@@ -29,20 +29,34 @@ jobs:
       # 步骤3：从坚果云拉取笔记到docs目录
       - name: Sync notes from NutStore
         run: |
+          # 清空并重建docs目录
           rm -rf docs && mkdir -p docs
+
+          # 编写标准的WebDAV同步脚本
           cat > sync.nut << EOF
+          # 1. 连接坚果云WebDAV服务器
           open https://dav.jianguoyun.com/dav/
+          # 2. 输入账号（WEBDAV_USER）
           user ${{ secrets.WEBDAV_USER }}
+          # 3. 输入密码（WEBDAV_PASS）
           pass ${{ secrets.WEBDAV_PASS }}
+          # 4. 切换到坚果云笔记目录
           cd ${{ secrets.WEBDAV_PATH }}
+          # 5. 本地切换到docs目录
           lcd docs
+          # 6. 递归下载所有文件和子文件夹
           mget -r *
+          # 7. 退出
           quit
           EOF
-          echo "开始同步坚果云笔记..."
-          cadaver -t --quiet < sync.nut
+
+          # 执行同步（仅保留-t参数，移除不兼容的--quiet）
+          echo "开始连接坚果云WebDAV并同步笔记..."
+          cadaver -t < sync.nut
+
+          # 验证同步结果
           echo "同步完成，docs目录内容："
-          ls -la docs/
+          ls -la docs/ || echo "docs目录为空，请检查同步配置！"
 
       # 步骤4：安装Node.js和依赖
       - name: Setup Node.js
