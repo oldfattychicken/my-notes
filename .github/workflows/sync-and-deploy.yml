@@ -43,7 +43,7 @@ jobs:
           open https://${{ secrets.WEBDAV_USER }}:${{ secrets.WEBDAV_PASS }}@dav.jianguoyun.com/dav/${{ secrets.WEBDAV_PATH }}
           # 修复：递归下载所有文件（改用ls确认目录后再下载，增加容错）
           ls
-          mget * -r # 修复：参数顺序调整，-r放后面，兼容更多环境
+          mget -r *  # 修复：参数顺序调整，-r放后面，兼容更多环境
           quit
           EOF
 
