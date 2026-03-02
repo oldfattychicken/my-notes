@@ -35,7 +35,7 @@ jobs:
           cat > sync.nut << EOF
           lcd docs  # 本地切换到docs目录
           cd ${{ secrets.WEBDAV_PATH }}  # 远程切换到坚果云笔记目录
-          mget *   # 下载所有md文件到本地docs
+          mget -r *   # 下载所有md文件到本地docs
           EOF
           # 执行同步（-t 避免交互，-u/-p 传入账号密码）
           cadaver -t "https://${{ secrets.WEBDAV_USER }}:${{ secrets.WEBDAV_PASS }}@dav.jianguoyun.com/dav/" < sync.nut
