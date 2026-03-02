@@ -79,13 +79,13 @@ jobs:
           npm run docs:build
           # 验证构建产物
           echo "=== 构建产物目录 ==="
-          ls -la docs/.vitepress/dist/ || echo "构建失败，无产物！"
+          ls -la .vitepress/dist/ || echo "构建失败，无产物！"
 
       # 步骤6：上传构建产物
       - name: Upload build artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: docs/.vitepress/dist
+          path: .vitepress/dist
 
       # 步骤7：部署到GitHub Pages
       - name: Deploy to GitHub Pages
