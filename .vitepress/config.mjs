@@ -6,20 +6,22 @@ export default {
   themeConfig: {
     nav: [
       { text: "首页", link: "/" },
-      { text: "前端", link: "/front-end/" },
+      {
+        text: "前端",
+        items: [
+          { text: "Vue3", link: "/frond-end/Vue3/index.md" },
+          { text: "Vue2", link: "/frond-end/React/index.md" },
+          { text: "Css", link: "/frond-end/CSS/index.md" },
+          { text: "Css3", link: "/frond-end/Css3/index.md" },
+          { text: "Html", link: "/frond-end/Html/index.md" },
+          { text: "JavaScript", link: "/frond-end/JavaScript/index.md" },
+          { text: "JQuery", link: "/frond-end/jQuery/index.md" },
+          { text: "Node", link: "/frond-end/Node/index.md" },
+          { text: "React", link: "/frond-end/React/index.md" },
+        ],
+      },
       { text: "运维", link: "/operation-maintenance/" },
     ],
-    sidebar: {
-      "/前端/": [
-        {
-          text: "前端",
-          items: [
-            { text: "Vue3", link: "/front-end/Vue3/" },
-            { text: "JavaScript", link: "/front-end/JavaScript/" },
-          ],
-        },
-      ],
-    },
   },
 
   base: "/my-notes/", // ⚠️ 必须替换为你的GitHub仓库名，比如仓库叫notes就填/notes/
