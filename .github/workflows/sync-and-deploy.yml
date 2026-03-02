@@ -1,15 +1,14 @@
 name: Sync NutStore & Deploy GitHub Pages
 
-# 触发条件：每5分钟自动执行 + 手动触发
+# 触发条件：每30分钟自动执行 + 手动触发（降低频率避免限流）
 on:
   schedule:
-    - cron: "*/5 * * * *" # 每5分钟拉一次坚果云笔记
-  workflow_dispatch: # 手动触发按钮（在GitHub Actions页面可见）
+    - cron: "*/30 * * * *" # 建议改为每30分钟，5分钟太频繁易被限流
+  workflow_dispatch: # 手动触发按钮
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    # 赋予部署GitHub Pages的权限
     permissions:
       pages: write
       id-token: write
@@ -22,43 +21,56 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 步骤2：安装WebDAV工具（用于访问坚果云）
+      # 步骤2：安装WebDAV工具
       - name: Install cadaver (WebDAV client)
-        run: sudo apt update && sudo apt install -y cadaver
+        run: |
+          sudo apt update -y
+          sudo apt install -y cadaver
+          # 验证安装（方便排查）
+          cadaver --version
 
-      # 步骤3：从坚果云拉取笔记到docs目录
+      # 步骤3：从坚果云同步笔记到docs目录（核心修正）
       - name: Sync notes from NutStore
         run: |
-          # 确保docs目录存在
-          mkdir -p docs
-          # 编写WebDAV同步脚本
+          # 清空旧docs目录（避免残留）+ 重建目录
+          rm -rf docs && mkdir -p docs
+          # 编写WebDAV同步脚本（带递归+退出）
           cat > sync.nut << EOF
-          lcd docs  # 本地切换到docs目录
-          cd ${{ secrets.WEBDAV_PATH }}  # 远程切换到坚果云笔记目录
-          mget -r *   # 下载所有md文件到本地docs
+          lcd docs
+          cd ${{ secrets.WEBDAV_PATH }}
+          mget -r *  # -r 递归下载子文件夹
+          quit       # 显式退出，避免进程挂起
           EOF
-          # 执行同步（-t 避免交互，-u/-p 传入账号密码）
-          cadaver -t "https://${{ secrets.WEBDAV_USER }}:${{ secrets.WEBDAV_PASS }}@dav.jianguoyun.com/dav/" < sync.nut
+          # 执行同步（添加--quiet减少冗余，-t非交互）
+          echo "开始同步坚果云笔记..."
+          cadaver -t --quiet "https://${{ secrets.WEBDAV_USER }}:${{ secrets.WEBDAV_PASS }}@dav.jianguoyun.com/dav/" < sync.nut
+          # 验证同步结果（打印docs目录结构，方便排查）
+          echo "同步完成，docs目录内容："
+          ls -la docs/
 
       # 步骤4：安装Node.js和依赖
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20 # 指定Node版本
-          cache: "npm" # 缓存npm依赖，加速构建
+          node-version: 20
+          cache: "npm"
 
       - name: Install dependencies
         run: npm install
 
-      # 步骤5：构建VitePress
+      # 步骤5：构建VitePress（验证构建目录）
       - name: Build VitePress site
-        run: npm run docs:build
+        run: |
+          npm run docs:build
+          # 验证构建产物
+          echo "构建完成，dist目录内容："
+          ls -la docs/.vitepress/dist/
 
-      # 步骤6：上传构建产物
+      # 步骤6：上传构建产物（修正路径！）
       - name: Upload build artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: .vitepress/dist # VitePress构建后的目录
+          path: docs/.vitepress/dist # 关键修正：不是.vitepress/dist
 
       # 步骤7：部署到GitHub Pages
       - name: Deploy to GitHub Pages
