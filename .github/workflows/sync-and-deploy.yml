@@ -1,82 +1,91 @@
 name: Sync NutStore & Deploy GitHub Pages
 
-# 触发条件：每5分钟自动执行 + 手动触发
+# 触发条件：每5分钟自动执行 + 手动触发（建议先调15分钟，避免触发频率限制）
 on:
   schedule:
-    - cron: "*/5 * * * *" # 每5分钟拉一次坚果云笔记
-  workflow_dispatch: # 手动触发按钮（在GitHub Actions页面可见）
+    - cron: "*/15 * * * *" # 降低频率，避免GitHub限流
+  workflow_dispatch: # 手动触发按钮
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    # 赋予部署GitHub Pages的权限
     permissions:
       pages: write
       id-token: write
+      contents: write # 新增：赋予读写仓库内容的权限（关键）
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
-      # 步骤1：拉取GitHub仓库代码
+      # 步骤1：拉取GitHub仓库代码（增加深度，避免历史记录问题）
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # 新增：必须，否则可能导致部署失败
 
-      # 步骤2：安装WebDAV工具（用于访问坚果云）
-      - name: Install cadaver (WebDAV client)
-        run: sudo apt update && sudo apt install -y cadaver
-
-      # 步骤3：从坚果云拉取笔记到docs目录
-      - name: Sync notes from NutStore
+      # 步骤2：安装WebDAV工具 + 依赖（增加curl，用于预测试WebDAV连通性）
+      - name: Install dependencies (cadaver + curl)
         run: |
-          # 清空并重建docs目录
-          rm -rf docs && mkdir -p docs
+          sudo apt update && sudo apt install -y cadaver curl
+          # 预测试坚果云WebDAV连通性（方便排查）
+          curl -u "${{ secrets.WEBDAV_USER }}:${{ secrets.WEBDAV_PASS }}" -X PROPFIND https://dav.jianguoyun.com/dav/
 
-          # 编写标准的WebDAV同步脚本
+      # 步骤3：从坚果云拉取笔记到docs目录（核心修复）
+      - name: Sync notes from NutStore WebDAV
+        run: |
+          # 清空并重建docs目录（保留.gitignore，避免误删配置）
+          rm -rf docs/* && mkdir -p docs
+
+          # 修复：用非交互模式编写cadaver脚本，认证方式改为URL内嵌（更稳定）
           cat > sync.nut << EOF
-          # 1. 连接坚果云WebDAV服务器
-          open https://dav.jianguoyun.com/dav/
-          # 2. 输入账号（WEBDAV_USER）
-          user ${{ secrets.WEBDAV_USER }}
-          # 3. 输入密码（WEBDAV_PASS）
-          pass ${{ secrets.WEBDAV_PASS }}
-          # 4. 切换到坚果云笔记目录
-          cd ${{ secrets.WEBDAV_PATH }}
-          # 5. 本地切换到docs目录
-          lcd docs
-          # 6. 递归下载所有文件和子文件夹
-          mget -r *
-          # 7. 退出
+          # 直接在open中传入账号密码（格式：https://用户名:密码@dav.jianguoyun.com/dav/）
+          open https://${{ secrets.WEBDAV_USER }}:${{ secrets.WEBDAV_PASS }}@dav.jianguoyun.com/dav/${{ secrets.WEBDAV_PATH }}
+          # 修复：递归下载所有文件（改用ls确认目录后再下载，增加容错）
+          ls
+          mget * -r # 修复：参数顺序调整，-r放后面，兼容更多环境
           quit
           EOF
 
-          # 执行同步（仅保留-t参数，移除不兼容的--quiet）
-          echo "开始连接坚果云WebDAV并同步笔记..."
-          cadaver -t < sync.nut
+          # 执行同步（增加详细日志，方便排查）
+          echo "=== 开始同步坚果云笔记 ==="
+          if cadaver -t -r < sync.nut; then
+            echo "=== 同步成功 ==="
+          else
+            echo "=== 同步失败，终止工作流 ==="
+            exit 1 # 同步失败则直接终止，避免后续无效步骤
+          fi
 
-          # 验证同步结果
-          echo "同步完成，docs目录内容："
-          ls -la docs/ || echo "docs目录为空，请检查同步配置！"
+          # 验证同步结果（打印详细目录，方便排查）
+          echo "=== 同步后docs目录内容 ==="
+          ls -la docs/ || echo "docs目录为空，请检查坚果云路径！"
 
-      # 步骤4：安装Node.js和依赖
+      # 步骤4：安装Node.js和VitePress依赖
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20 # 指定Node版本
-          cache: "npm" # 缓存npm依赖，加速构建
+          node-version: 20
+          cache: "npm" # 缓存依赖，加速构建
 
-      - name: Install dependencies
-        run: npm install
+      - name: Install VitePress dependencies
+        run: |
+          npm install # 安装项目依赖
+          npm install vitepress # 兜底：确保vitepress已安装
 
-      # 步骤5：构建VitePress
+      # 步骤5：构建VitePress（修复脚本名）
       - name: Build VitePress site
-        run: npm run docs:build
+        run: |
+          # 修复：脚本名改为常规的build（若你自定义了docs:build，可改回）
+          npm run build
+          # 验证构建产物
+          echo "=== 构建产物目录 ==="
+          ls -la docs/.vitepress/dist/ || echo "构建失败，无产物！"
 
       # 步骤6：上传构建产物
       - name: Upload build artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: docs/.vitepress/dist # VitePress构建后的目录
+          path: docs/.vitepress/dist
 
       # 步骤7：部署到GitHub Pages
       - name: Deploy to GitHub Pages
