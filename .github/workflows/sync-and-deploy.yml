@@ -76,7 +76,7 @@ jobs:
       - name: Build VitePress site
         run: |
           # 修复：脚本名改为常规的build（若你自定义了docs:build，可改回）
-          npm run build
+          npm run docs:build
           # 验证构建产物
           echo "=== 构建产物目录 ==="
           ls -la docs/.vitepress/dist/ || echo "构建失败，无产物！"
