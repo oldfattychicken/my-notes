@@ -49,7 +49,7 @@ jobs:
 
           # 执行同步（增加详细日志，方便排查）
           echo "=== 开始同步坚果云笔记 ==="
-          if cadaver -t -r < sync.nut; then
+          if cadaver -t  < sync.nut; then
             echo "=== 同步成功 ==="
           else
             echo "=== 同步失败，终止工作流 ==="
