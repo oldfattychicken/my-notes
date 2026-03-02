@@ -33,6 +33,10 @@ jobs:
           mkdir -p docs
           # 编写WebDAV同步脚本
           cat > sync.nut << EOF
+          open https://dav.jianguoyun.com/dav/
+          user ${{ secrets.WEBDAV_USER }}
+          pass ${{ secrets.WEBDAV_PASS }}
+          cd ${{ secrets.WEBDAV_PATH }}
           lcd docs  # 本地切换到docs目录
           cd ${{ secrets.WEBDAV_PATH }}  # 远程切换到坚果云笔记目录
           mget -r *   # 下载所有md文件到本地docs
